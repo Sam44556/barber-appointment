@@ -1,0 +1,190 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  BARBER
+  CUSTOMER
+}
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+   phone String?
+
+  role Role @default(CUSTOMER)
+
+  barber Barber?
+
+  appointments Appointment[] @relation("CustomerAppointments")
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model Barber {
+  id String @id @default(cuid())
+
+  userId String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  isActive Boolean @default(true)
+  specializations String?
+  appointments Appointment[]
+
+
+  timeOff BarberTimeOff[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Service {
+  id String @id @default(cuid())
+
+  name String
+
+  description String?
+
+  duration Int
+
+  price Decimal
+
+  isActive Boolean @default(true)
+
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Appointment {
+  id String @id @default(cuid())
+
+  customerId String
+  customer User @relation("CustomerAppointments", fields: [customerId], references: [id], onDelete: Cascade)
+
+  barberId String
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  serviceId String
+  service Service @relation(fields: [serviceId], references: [id])
+
+  start DateTime
+
+  end DateTime
+
+  status AppointmentStatus @default(PENDING)
+
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([barberId, start])
+  @@index([customerId, start])
+}
+
+model BarberTimeOff {
+  id String @id @default(cuid())
+
+  barberId String
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  allDay Boolean @default(false)
+
+  start DateTime?
+
+  end DateTime?
+
+  reason String?
+
+  createdAt DateTime @default(now())
+
+  @@index([barberId])
+}
+
+model ShopClosure {
+  id String @id @default(cuid())
+
+  allDay Boolean @default(false)
+
+  start DateTime?
+
+  end DateTime?
+
+  reason String?
+
+  createdAt DateTime @default(now())
+}
