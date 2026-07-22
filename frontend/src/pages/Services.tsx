@@ -1,9 +1,41 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FADE_UP, STAGGER } from '@/lib/animations';
-import { services } from '@/lib/data';
+import { apiService } from '@/lib/api';
+import type { Service } from '@/types';
 
 export default function Services() {
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const data = await apiService.getServices();
+        setServices(data.filter((service: Service) => service.isActive));
+      } catch (error) {
+        console.error('Failed to fetch services:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchServices();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="pt-24 pb-16">
+        <div className="container mx-auto px-6">
+          <div className="flex items-center justify-center py-24">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -30,42 +62,50 @@ export default function Services() {
           />
         </div>
 
-        <motion.div
-          variants={STAGGER}
-          initial="hidden"
-          animate="visible"
-          className="max-w-3xl mx-auto"
-        >
-          {services.map((service, i) => (
-            <motion.div
-              key={service.id}
-              variants={FADE_UP}
-              className="group flex items-center gap-6 py-6 border-b border-border hover:bg-secondary/50 px-4 -mx-4 transition-colors cursor-pointer"
-            >
-              <span className="font-mono text-sm text-muted-foreground w-12 shrink-0">
-                —{String(i + 1).padStart(2, '0')}
-              </span>
-
-              <div className="flex-1 min-w-0">
-                <h3 className="font-display text-lg font-bold">{service.name}</h3>
-                <p className="font-body text-sm text-muted-foreground">{service.description}</p>
-              </div>
-
-              <div className="flex items-center gap-6 shrink-0">
-                <span className="font-mono text-sm text-muted-foreground hidden sm:block">
-                  {service.duration} min
+        {services.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <p>No services available at the moment.</p>
+          </div>
+        ) : (
+          <motion.div
+            variants={STAGGER}
+            initial="hidden"
+            animate="visible"
+            className="max-w-3xl mx-auto"
+          >
+            {services.map((service, i) => (
+              <motion.div
+                key={service.id}
+                variants={FADE_UP}
+                className="group flex items-center gap-6 py-6 border-b border-border hover:bg-secondary/50 px-4 -mx-4 transition-colors cursor-pointer"
+              >
+                <span className="font-mono text-sm text-muted-foreground w-12 shrink-0">
+                  —{String(i + 1).padStart(2, '0')}
                 </span>
-                <span className="font-display text-xl font-bold">${service.price}</span>
-                <Link
-                  to="/book"
-                  className="font-body text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
-                >
-                  Book
-                </Link>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
+
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-display text-lg font-bold">{service.name}</h3>
+                  <p className="font-body text-sm text-muted-foreground">
+                    {service.description || 'Professional service by our expert barbers'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-6 shrink-0">
+                  <span className="font-mono text-sm text-muted-foreground hidden sm:block">
+                    {service.duration} min
+                  </span>
+                  <span className="font-display text-xl font-bold">${service.price}</span>
+                  <Link
+                    to="/book"
+                    className="font-body text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
+                  >
+                    Book
+                  </Link>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
 
         <motion.div
           initial={{ opacity: 0 }}

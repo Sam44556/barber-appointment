@@ -1,20 +1,59 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FADE_UP, STAGGER, SCALE_IN } from '@/lib/animations';
+import { useAuthStore } from '@/stores/auth';
+import { toast } from 'sonner';
 
 export default function Login() {
+  const navigate = useNavigate();
+  const { login, isLoading, isAuthenticated, user } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Redirect authenticated users based on their role
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      switch (user.role) {
+        case 'ADMIN':
+          navigate('/admin/dashboard');
+          break;
+        case 'BARBER':
+          navigate('/barber/dashboard');
+          break;
+        case 'CUSTOMER':
+          navigate('/');
+          break;
+        default:
+          navigate('/');
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!email || !password) {
       setError('Please fill in all fields');
       return;
     }
+    
     setError('');
+
+    try {
+      await login({ email, password });
+      
+      // Debug: Log the user data after login
+      const currentUser = useAuthStore.getState().user;
+      console.log('🔍 User after login:', currentUser);
+      console.log('🔍 User role:', currentUser?.role);
+      
+      toast.success('Welcome back!');
+    } catch (error: any) {
+      setError(error.message || 'Login failed. Please check your credentials.');
+      toast.error('Login failed');
+    }
   };
 
   return (
@@ -49,8 +88,9 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@email.com"
-              className={`w-full px-4 py-3.5 border rounded-sm bg-background font-body text-sm focus:outline-none transition-colors ${
-                error ? 'border-foreground' : 'border-border focus:border-foreground'
+              disabled={isLoading}
+              className={`w-full px-4 py-3.5 border rounded-sm bg-background font-body text-sm focus:outline-none transition-colors disabled:opacity-50 ${
+                error ? 'border-red-500' : 'border-border focus:border-foreground'
               }`}
             />
           </motion.div>
@@ -67,8 +107,9 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className={`w-full px-4 py-3.5 border rounded-sm bg-background font-body text-sm focus:outline-none transition-colors ${
-                error ? 'border-foreground' : 'border-border focus:border-foreground'
+              disabled={isLoading}
+              className={`w-full px-4 py-3.5 border rounded-sm bg-background font-body text-sm focus:outline-none transition-colors disabled:opacity-50 ${
+                error ? 'border-red-500' : 'border-border focus:border-foreground'
               }`}
             />
           </motion.div>
@@ -77,7 +118,7 @@ export default function Login() {
             <motion.p
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: [0, -8, 8, -8, 8, 0] }}
-              className="font-body text-xs text-foreground"
+              className="font-body text-xs text-red-500"
             >
               {error}
             </motion.p>
@@ -86,22 +127,20 @@ export default function Login() {
           <motion.div variants={FADE_UP}>
             <button
               type="submit"
-              className="w-full py-3.5 bg-primary text-primary-foreground font-body text-sm rounded-sm hover:opacity-90 transition-opacity"
+              disabled={isLoading}
+              className="w-full py-3.5 bg-primary text-primary-foreground font-body text-sm rounded-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
-              Sign In
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
+                  Signing In...
+                </>
+              ) : (
+                'Sign In'
+              )}
             </button>
           </motion.div>
         </motion.form>
-
-        <div className="my-6 flex items-center gap-3">
-          <div className="flex-1 h-px bg-border" />
-          <span className="font-mono text-xs text-muted-foreground">or</span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
-        <button className="w-full py-3.5 border border-border rounded-sm font-body text-sm hover:bg-secondary transition-colors">
-          Continue with Google
-        </button>
 
         <p className="text-center mt-8 font-body text-sm text-muted-foreground">
           Don't have an account?{' '}
@@ -109,6 +148,16 @@ export default function Login() {
             Register
           </Link>
         </p>
+
+        {/* Demo credentials */}
+        <div className="mt-6 p-4 bg-muted rounded-sm">
+          <p className="font-body text-xs text-muted-foreground mb-2">Demo accounts:</p>
+          <div className="space-y-1 text-xs font-mono">
+            <p>Admin: admin@example.com / password123</p>
+            <p>Barber: barber@example.com / password123</p>
+            <p>Customer: customer@example.com / password123</p>
+          </div>
+        </div>
       </motion.div>
     </motion.div>
   );

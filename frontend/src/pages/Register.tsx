@@ -1,16 +1,21 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FADE_UP, STAGGER } from '@/lib/animations';
+import { useAuthStore } from '@/stores/auth';
+import { toast } from 'sonner';
 import interiorImage from '@/assets/barbershop-interior.jpg';
 
 export default function Register() {
+  const navigate = useNavigate();
+  const { register, isLoading } = useAuthStore();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
 
   const strength = useMemo(() => {
     let s = 0;
@@ -21,8 +26,40 @@ export default function Register() {
     return s;
   }, [password]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!firstName || !lastName || !email || !password) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    if (password !== confirm) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+    
+    setError('');
+
+    try {
+      await register({
+        name: `${firstName} ${lastName}`.trim(),
+        email,
+        password,
+        phone: phone || undefined,
+      });
+      
+      toast.success('Account created successfully! Please sign in.');
+      navigate('/login');
+    } catch (error: any) {
+      setError(error.message || 'Registration failed. Please try again.');
+      toast.error('Registration failed');
+    }
   };
 
   return (
@@ -47,53 +84,66 @@ export default function Register() {
           >
             <motion.div variants={FADE_UP} className="grid grid-cols-2 gap-4">
               <div>
-                <label className="font-body text-sm font-medium block mb-1.5">First Name</label>
+                <label className="font-body text-sm font-medium block mb-1.5">
+                  First Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors"
+                  disabled={isLoading}
+                  className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
                 />
               </div>
               <div>
-                <label className="font-body text-sm font-medium block mb-1.5">Last Name</label>
+                <label className="font-body text-sm font-medium block mb-1.5">
+                  Last Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors"
+                  disabled={isLoading}
+                  className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
                 />
               </div>
             </motion.div>
 
             <motion.div variants={FADE_UP}>
-              <label className="font-body text-sm font-medium block mb-1.5">Email</label>
+              <label className="font-body text-sm font-medium block mb-1.5">
+                Email <span className="text-red-500">*</span>
+              </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors"
+                disabled={isLoading}
+                className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
               />
             </motion.div>
 
             <motion.div variants={FADE_UP}>
-              <label className="font-body text-sm font-medium block mb-1.5">Phone</label>
+              <label className="font-body text-sm font-medium block mb-1.5">Phone (Optional)</label>
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+1 (555) 000-0000"
-                className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors"
+                disabled={isLoading}
+                className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
               />
             </motion.div>
 
             <motion.div variants={FADE_UP}>
-              <label className="font-body text-sm font-medium block mb-1.5">Password</label>
+              <label className="font-body text-sm font-medium block mb-1.5">
+                Password <span className="text-red-500">*</span>
+              </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors"
+                disabled={isLoading}
+                className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
               />
               {password && (
                 <div className="flex gap-1 mt-2">
@@ -110,21 +160,42 @@ export default function Register() {
             </motion.div>
 
             <motion.div variants={FADE_UP}>
-              <label className="font-body text-sm font-medium block mb-1.5">Confirm Password</label>
+              <label className="font-body text-sm font-medium block mb-1.5">
+                Confirm Password <span className="text-red-500">*</span>
+              </label>
               <input
                 type="password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors"
+                disabled={isLoading}
+                className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
               />
             </motion.div>
+
+            {error && (
+              <motion.p
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: [0, -8, 8, -8, 8, 0] }}
+                className="font-body text-xs text-red-500"
+              >
+                {error}
+              </motion.p>
+            )}
 
             <motion.div variants={FADE_UP}>
               <button
                 type="submit"
-                className="w-full py-3.5 bg-primary text-primary-foreground font-body text-sm rounded-sm hover:opacity-90 transition-opacity mt-2"
+                disabled={isLoading}
+                className="w-full py-3.5 bg-primary text-primary-foreground font-body text-sm rounded-sm hover:opacity-90 transition-opacity mt-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
-                Create Account
+                {isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
+                    Creating Account...
+                  </>
+                ) : (
+                  'Create Account'
+                )}
               </button>
             </motion.div>
           </motion.form>
@@ -132,7 +203,7 @@ export default function Register() {
           <p className="text-center mt-8 font-body text-sm text-muted-foreground">
             Already have an account?{' '}
             <Link to="/login" className="text-foreground hover:underline underline-offset-4">
-              Login
+              Sign In
             </Link>
           </p>
         </div>

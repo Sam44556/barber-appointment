@@ -1,11 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Lock, User } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday, isBefore, startOfDay } from 'date-fns';
 import { FADE_UP, STAGGER, EASE } from '@/lib/animations';
 import { useBookingStore } from '@/stores/booking';
-import { services, barbers, timeSlots, bookedSlots } from '@/lib/data';
+import { useAuthStore } from '@/stores/auth';
+import { apiService } from '@/lib/api';
+import { toast } from 'sonner';
+import type { Service, Barber, TimeSlot } from '@/types';
 
 function StepIndicator({ step }: { step: number }) {
   return (
@@ -49,6 +52,38 @@ function StepIndicator({ step }: { step: number }) {
 
 function Step1() {
   const { selectedService, selectedBarber, setService, setBarber, setStep } = useBookingStore();
+  const [services, setServices] = useState<Service[]>([]);
+  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [servicesData, barbersData] = await Promise.all([
+          apiService.getServices(),
+          apiService.getBarbers(),
+        ]);
+        
+        setServices(servicesData.filter((service: Service) => service.isActive));
+        setBarbers(barbersData.filter((barber: Barber) => barber.isActive));
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+        toast.error('Failed to load services and barbers');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -83,7 +118,7 @@ function Step1() {
               )}
               <h3 className="font-display text-lg font-bold">{service.name}</h3>
               <p className={`font-body text-sm mt-1 ${isSelected ? 'text-gray-300' : 'text-muted-foreground'}`}>
-                {service.description}
+                {service.description || 'Professional service'}
               </p>
               <div className="flex items-center gap-4 mt-3">
                 <span className={`font-mono text-xs ${isSelected ? 'text-gray-400' : 'text-muted-foreground'}`}>
@@ -120,15 +155,19 @@ function Step1() {
               selectedBarber?.id === barber.id ? 'ring-2 ring-primary' : ''
             }`}
           >
-            <img
-              src={barber.avatarUrl}
-              alt={barber.name}
-              className="w-16 h-16 rounded-full object-cover"
-              loading="lazy"
-              width={80}
-              height={80}
-            />
-            <span className="font-body text-xs">{barber.name.split(' ')[0]}</span>
+            <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
+              {barber.user.image ? (
+                <img
+                  src={barber.user.image}
+                  alt={barber.user.name}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <User size={24} className="text-muted-foreground" />
+              )}
+            </div>
+            <span className="font-body text-xs">{barber.user.name.split(' ')[0]}</span>
           </button>
         ))}
       </div>
@@ -145,8 +184,10 @@ function Step1() {
 }
 
 function Step2() {
-  const { selectedDate, selectedTime, setDate, setTime, setStep } = useBookingStore();
+  const { selectedDate, selectedTime, selectedBarber, setDate, setTime, setStep } = useBookingStore();
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const days = useMemo(() => {
     const start = startOfMonth(currentMonth);
@@ -156,14 +197,66 @@ function Step2() {
 
   const firstDayOffset = getDay(startOfMonth(currentMonth));
 
+  // Fetch available time slots when date is selected
+  useEffect(() => {
+    if (!selectedDate) return;
+
+    const fetchAvailability = async () => {
+      try {
+        setLoading(true);
+        const dateString = format(selectedDate, 'yyyy-MM-dd');
+        
+        if (selectedBarber) {
+          // Get availability for specific barber
+          const slots = await apiService.getBarberAvailability(selectedBarber.id, dateString);
+          setAvailableSlots(slots);
+        } else {
+          // For "any barber", we'll use a simplified approach
+          // In a real app, you'd fetch availability across all barbers
+          const defaultSlots: TimeSlot[] = [];
+          for (let hour = 9; hour <= 17; hour++) {
+            const timeString = `${hour.toString().padStart(2, '0')}:00`;
+            defaultSlots.push({
+              time: timeString,
+              datetime: `${dateString}T${timeString}:00.000Z`,
+              available: Math.random() > 0.3, // 70% chance of being available
+            });
+          }
+          setAvailableSlots(defaultSlots);
+        }
+      } catch (error) {
+        console.error('Failed to fetch availability:', error);
+        toast.error('Failed to load availability');
+        setAvailableSlots([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAvailability();
+  }, [selectedDate, selectedBarber]);
+
   const groupedSlots = useMemo(() => {
-    const groups: Record<string, typeof timeSlots> = {};
-    timeSlots.forEach((slot) => {
-      if (!groups[slot.period]) groups[slot.period] = [];
-      groups[slot.period].push(slot);
-    });
-    return groups;
-  }, []);
+    const groups: Record<string, TimeSlot[]> = {
+      'Morning': availableSlots.filter(slot => {
+        const hour = parseInt(slot.time.split(':')[0]);
+        return hour >= 9 && hour < 12;
+      }),
+      'Afternoon': availableSlots.filter(slot => {
+        const hour = parseInt(slot.time.split(':')[0]);
+        return hour >= 12 && hour < 17;
+      }),
+      'Evening': availableSlots.filter(slot => {
+        const hour = parseInt(slot.time.split(':')[0]);
+        return hour >= 17;
+      }),
+    };
+    
+    // Remove empty groups
+    return Object.fromEntries(
+      Object.entries(groups).filter(([_, slots]) => slots.length > 0)
+    );
+  }, [availableSlots]);
 
   return (
     <motion.div
@@ -247,34 +340,45 @@ function Step2() {
               Available times for <span className="text-foreground font-medium">{format(selectedDate, 'EEEE, d MMMM')}</span>
             </p>
 
-            {Object.entries(groupedSlots).map(([period, slots]) => (
-              <div key={period} className="mb-6">
-                <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground mb-3">{period}</p>
-                <motion.div variants={STAGGER} initial="hidden" animate="visible" className="flex flex-wrap gap-2">
-                  {slots.map((slot) => {
-                    const isBooked = bookedSlots.includes(slot.time);
-                    const isSelected = selectedTime === slot.time;
-                    return (
-                      <motion.button
-                        key={slot.time}
-                        variants={FADE_UP}
-                        onClick={() => !isBooked && setTime(slot.time)}
-                        disabled={isBooked}
-                        className={`font-mono text-sm px-4 py-2.5 border rounded-full transition-all ${
-                          isSelected
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : isBooked
-                            ? 'bg-secondary text-gray-300 line-through cursor-not-allowed border-transparent'
-                            : 'border-border hover:border-foreground'
-                        }`}
-                      >
-                        {slot.time}
-                      </motion.button>
-                    );
-                  })}
-                </motion.div>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
               </div>
-            ))}
+            ) : Object.entries(groupedSlots).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No available slots for this date.</p>
+                <p className="text-xs mt-1">Please select a different date.</p>
+              </div>
+            ) : (
+              Object.entries(groupedSlots).map(([period, slots]) => (
+                <div key={period} className="mb-6">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground mb-3">{period}</p>
+                  <motion.div variants={STAGGER} initial="hidden" animate="visible" className="flex flex-wrap gap-2">
+                    {slots.map((slot) => {
+                      const isBooked = !slot.available;
+                      const isSelected = selectedTime === slot.time;
+                      return (
+                        <motion.button
+                          key={slot.time}
+                          variants={FADE_UP}
+                          onClick={() => slot.available && setTime(slot.time)}
+                          disabled={isBooked}
+                          className={`font-mono text-sm px-4 py-2.5 border rounded-full transition-all ${
+                            isSelected
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : isBooked
+                              ? 'bg-secondary text-gray-300 line-through cursor-not-allowed border-transparent'
+                              : 'border-border hover:border-foreground'
+                          }`}
+                        >
+                          {slot.time}
+                        </motion.button>
+                      );
+                    })}
+                  </motion.div>
+                </div>
+              ))
+            )}
 
             <button
               onClick={() => selectedTime && setStep(3)}
@@ -292,19 +396,59 @@ function Step2() {
 
 function Step3() {
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuthStore();
   const {
     selectedService, selectedBarber, selectedDate, selectedTime,
     customerName, customerPhone, customerEmail,
     setStep, setCustomerDetails, reset,
   } = useBookingStore();
-  const [name, setName] = useState(customerName);
-  const [phone, setPhone] = useState(customerPhone);
-  const [email, setEmail] = useState(customerEmail);
+  
+  const [name, setName] = useState(customerName || user?.name || '');
+  const [phone, setPhone] = useState(customerPhone || user?.phone || '');
+  const [email, setEmail] = useState(customerEmail || user?.email || '');
+  const [note, setNote] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleConfirm = () => {
-    setCustomerDetails(name, phone, email);
-    const id = `BK-${format(new Date(), 'yyyyMMdd')}-${String(Math.floor(Math.random() * 999)).padStart(3, '0')}`;
-    navigate(`/booking/confirmation/${id}`);
+  const handleConfirm = async () => {
+    if (!selectedService || !selectedDate || !selectedTime || !name || !phone) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      toast.error('Please login to book an appointment');
+      navigate('/login');
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      // Create appointment data
+      const appointmentData = {
+        serviceId: selectedService.id,
+        barberId: selectedBarber?.id || '', // If no barber selected, backend should handle assignment
+        start: `${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}:00.000Z`,
+        note: note || undefined,
+      };
+
+      const appointment = await apiService.createAppointment(appointmentData);
+      
+      // Store customer details for confirmation
+      setCustomerDetails(name, phone, email);
+      
+      toast.success('Appointment booked successfully!');
+      navigate(`/booking/confirmation/${appointment.id}`);
+      
+      // Reset booking store
+      reset();
+      
+    } catch (error: any) {
+      console.error('Failed to create appointment:', error);
+      toast.error(error.message || 'Failed to book appointment. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -324,12 +468,22 @@ function Step3() {
       <div className="bg-gray-900 text-primary-foreground rounded-sm p-6 mb-8">
         <div className="flex items-center gap-4 mb-4">
           {selectedBarber && (
-            <img src={selectedBarber.avatarUrl} alt={selectedBarber.name} className="w-12 h-12 rounded-full object-cover" />
+            <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
+              {selectedBarber.user.image ? (
+                <img 
+                  src={selectedBarber.user.image} 
+                  alt={selectedBarber.user.name} 
+                  className="w-full h-full object-cover" 
+                />
+              ) : (
+                <User size={24} className="text-muted-foreground" />
+              )}
+            </div>
           )}
           <div>
             <p className="font-display text-lg font-bold">{selectedService?.name}</p>
             <p className="font-body text-sm text-gray-400">
-              {selectedBarber ? `with ${selectedBarber.name}` : 'Any available barber'}
+              {selectedBarber ? `with ${selectedBarber.user.name}` : 'Any available barber'}
             </p>
           </div>
         </div>
@@ -345,46 +499,85 @@ function Step3() {
         </div>
       </div>
 
+      {!isAuthenticated && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-sm p-4 mb-6">
+          <p className="text-yellow-800 text-sm">
+            You need to be logged in to book an appointment. 
+            <button 
+              onClick={() => navigate('/login')}
+              className="underline ml-1 hover:no-underline"
+            >
+              Sign in here
+            </button>
+          </p>
+        </div>
+      )}
+
       <div className="space-y-4 mb-8">
         <div>
-          <label className="font-body text-sm font-medium block mb-1.5">Full Name</label>
+          <label className="font-body text-sm font-medium block mb-1.5">
+            Full Name <span className="text-red-500">*</span>
+          </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
-            className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors"
+            disabled={isSubmitting}
+            className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
           />
         </div>
         <div>
-          <label className="font-body text-sm font-medium block mb-1.5">Phone Number</label>
+          <label className="font-body text-sm font-medium block mb-1.5">
+            Phone Number <span className="text-red-500">*</span>
+          </label>
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+1 (555) 000-0000"
-            className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors"
+            disabled={isSubmitting}
+            className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
           />
         </div>
         <div>
-          <label className="font-body text-sm font-medium block mb-1.5">Email (optional)</label>
+          <label className="font-body text-sm font-medium block mb-1.5">Email</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@email.com"
-            className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors"
+            disabled={isSubmitting}
+            className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
           />
         </div>
-        <p className="font-body text-xs text-muted-foreground">We'll send a reminder to your phone.</p>
+        <div>
+          <label className="font-body text-sm font-medium block mb-1.5">Special requests (Optional)</label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Any special instructions or preferences..."
+            rows={3}
+            disabled={isSubmitting}
+            className="w-full px-4 py-3.5 border border-border rounded-sm bg-background font-body text-sm focus:outline-none focus:border-foreground transition-colors disabled:opacity-50 resize-none"
+          />
+        </div>
+        <p className="font-body text-xs text-muted-foreground">We'll send a confirmation to your phone and email.</p>
       </div>
 
       <button
         onClick={handleConfirm}
-        disabled={!name || !phone}
-        className="w-full py-4 bg-primary text-primary-foreground font-body text-sm rounded-sm disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+        disabled={!name || !phone || isSubmitting || !isAuthenticated}
+        className="w-full py-4 bg-primary text-primary-foreground font-body text-sm rounded-sm disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-opacity flex items-center justify-center"
       >
-        Confirm Appointment
+        {isSubmitting ? (
+          <>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
+            Booking Appointment...
+          </>
+        ) : (
+          'Confirm Appointment'
+        )}
       </button>
 
       <div className="flex items-center justify-center gap-2 mt-4 text-muted-foreground">

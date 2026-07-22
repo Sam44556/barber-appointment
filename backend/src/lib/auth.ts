@@ -1,21 +1,21 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { PrismaClient } from "../../generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
+import { PrismaService } from "../prisma/prisma.service";
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-});
-
-const adapter = new PrismaPg(pool);
-
-const prisma = new PrismaClient({
-    adapter,
-});
+const prismaService = new PrismaService();
 
 export const auth = betterAuth({
-    database: prismaAdapter(prisma, {
+    database: prismaAdapter(prismaService, {
         provider: "postgresql",
     }),
+    emailAndPassword: {
+        enabled: true,
+        requireEmailVerification: false,
+    },
+    session: {
+        expiresIn: 60 * 60 * 24 * 7, // 7 days
+        updateAge: 60 * 60 * 24, // 1 day
+    },
+    secret: process.env.BETTER_AUTH_SECRET || "fallback-secret-key",
+    baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
 });

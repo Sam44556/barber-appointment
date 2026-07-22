@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, User, LogOut } from 'lucide-react';
+import { useAuthStore } from '@/stores/auth';
 import { FADE_UP, STAGGER, EASE } from '@/lib/animations';
 
 const navLinks = [
@@ -12,9 +13,31 @@ const navLinks = [
 
 export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { scrollY } = useScroll();
   const borderOpacity = useTransform(scrollY, [0, 80], [0, 1]);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isAuthenticated, logout } = useAuthStore();
+
+  const handleLogout = () => {
+    logout();
+    setUserMenuOpen(false);
+    navigate('/');
+  };
+
+  const getDashboardLink = () => {
+    if (!user) return '/';
+    switch (user.role) {
+      case 'ADMIN':
+        return '/admin/dashboard';
+      case 'BARBER':
+        return '/barber/dashboard';
+      case 'CUSTOMER':
+      default:
+        return '/';
+    }
+  };
 
   return (
     <>
@@ -42,18 +65,64 @@ export function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            <Link
-              to="/login"
-              className="font-body text-sm px-4 py-2 border border-border rounded-sm hover:bg-secondary transition-colors"
-            >
-              Login
-            </Link>
-            <Link
-              to="/book"
-              className="font-body text-sm px-4 py-2 bg-primary text-primary-foreground rounded-sm hover:opacity-90 transition-opacity"
-            >
-              Book Now
-            </Link>
+            {isAuthenticated && user ? (
+              <div className="relative">
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-2 font-body text-sm px-4 py-2 border border-border rounded-sm hover:bg-secondary transition-colors"
+                >
+                  <User size={16} />
+                  {user.name?.split(' ')[0]}
+                </button>
+                
+                <AnimatePresence>
+                  {userMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 top-full mt-2 w-48 bg-background border border-border rounded-sm shadow-lg"
+                    >
+                      <div className="p-2">
+                        <div className="px-3 py-2 text-xs text-muted-foreground border-b border-border">
+                          {user.email}
+                        </div>
+                        <Link
+                          to={getDashboardLink()}
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-secondary rounded-sm transition-colors"
+                        >
+                          <User size={16} />
+                          Dashboard
+                        </Link>
+                        <button
+                          onClick={handleLogout}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-secondary rounded-sm transition-colors text-left"
+                        >
+                          <LogOut size={16} />
+                          Sign Out
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="font-body text-sm px-4 py-2 border border-border rounded-sm hover:bg-secondary transition-colors"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/book"
+                  className="font-body text-sm px-4 py-2 bg-primary text-primary-foreground rounded-sm hover:opacity-90 transition-opacity"
+                >
+                  Book Now
+                </Link>
+              </>
+            )}
           </div>
 
           <button
@@ -98,15 +167,41 @@ export function Navbar() {
                   </Link>
                 </motion.div>
               ))}
-              <motion.div variants={FADE_UP}>
-                <Link
-                  to="/login"
-                  onClick={() => setMenuOpen(false)}
-                  className="font-body text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Login
-                </Link>
-              </motion.div>
+              
+              {isAuthenticated && user ? (
+                <>
+                  <motion.div variants={FADE_UP}>
+                    <Link
+                      to={getDashboardLink()}
+                      onClick={() => setMenuOpen(false)}
+                      className="font-body text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Dashboard
+                    </Link>
+                  </motion.div>
+                  <motion.div variants={FADE_UP}>
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setMenuOpen(false);
+                      }}
+                      className="font-body text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Sign Out
+                    </button>
+                  </motion.div>
+                </>
+              ) : (
+                <motion.div variants={FADE_UP}>
+                  <Link
+                    to="/login"
+                    onClick={() => setMenuOpen(false)}
+                    className="font-body text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Login
+                  </Link>
+                </motion.div>
+              )}
             </motion.div>
           </motion.div>
         )}
