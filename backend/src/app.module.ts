@@ -7,15 +7,17 @@ import { PrismaModule } from './prisma/prisma.module';
 import { BarbersModule } from './barbers/barbers.module';
 import { ServicesModule } from './services/services.module';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
     BarbersModule,
     ServicesModule,
     AppointmentsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

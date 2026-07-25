@@ -79,6 +79,26 @@ class ApiService {
     });
   }
 
+  async validateInvitation(token: string) {
+    return this.request<{ valid: boolean; invitation?: any }>(`/auth/validate-invitation?token=${token}`, {
+      method: 'GET',
+    });
+  }
+
+  async registerBarber(barberData: {
+    token: string;
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+    specializations?: string;
+  }) {
+    return this.request<{ user: any; token: string; barber: any; message: string }>('/auth/register-barber', {
+      method: 'POST',
+      body: JSON.stringify(barberData),
+    });
+  }
+
   async getSession() {
     return this.request<{ user: any; session: any }>('/auth/session');
   }
@@ -153,6 +173,8 @@ class ApiService {
   }
 
   async updateBarber(id: string, barberData: {
+    name?: string;
+    phone?: string;
     specializations?: string;
     isActive?: boolean;
   }) {
@@ -258,6 +280,154 @@ class ApiService {
     });
   }
 
+  // Barber: get my profile
+  async getMyBarberProfile() {
+    return this.request<any>('/barbers/me');
+  }
+
+  // Barber: update my profile (Name, Phone, Specializations, + attached photo File together)
+  async updateMyBarberProfile(data: {
+    name?: string;
+    phone?: string;
+    specializations?: string;
+    image?: string;
+    file?: File | null;
+  }) {
+    const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+
+    // If an image file was selected from device, send ONE single multipart form data request
+    if (data.file) {
+      const formData = new FormData();
+      if (data.name) formData.append('name', data.name);
+      if (data.phone) formData.append('phone', data.phone);
+      if (data.specializations) formData.append('specializations', data.specializations);
+      if (data.image) formData.append('image', data.image);
+      formData.append('file', data.file);
+
+      const response = await fetch(`${API_BASE_URL}/barbers/me`, {
+        method: 'PATCH',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to update barber profile');
+      }
+
+      return response.json();
+    }
+
+    // Standard JSON request
+    return this.request<any>('/barbers/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Barber: upload avatar image file via backend endpoint
+  async uploadMyBarberAvatar(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${this.baseUrl}/barbers/me/avatar`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to upload avatar image');
+    }
+
+    return response.json();
+  }
+
+  // Barber: get my own time-off
+  async getMyTimeOff() {
+    return this.request<any[]>('/barbers/me/time-off');
+  }
+
+  // Barber: create my own time-off
+  async createMyTimeOff(data: { allDay: boolean; start?: string; end?: string; reason?: string }) {
+    return this.request<any>('/barbers/me/time-off', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Barber: update my own time-off
+  async updateMyTimeOff(timeOffId: string, data: { allDay?: boolean; start?: string; end?: string; reason?: string }) {
+    return this.request<any>(`/barbers/me/time-off/${timeOffId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Barber: delete my own time-off
+  async deleteMyTimeOff(timeOffId: string) {
+    return this.request<any>(`/barbers/me/time-off/${timeOffId}`, { method: 'DELETE' });
+  }
+
+  // Admin: get time-off for a specific barber
+  async adminGetBarberTimeOff(barberId: string) {
+    return this.request<any[]>(`/barbers/admin/${barberId}/time-off`);
+  }
+
+  // Admin: create time-off for a specific barber
+  async adminCreateBarberTimeOff(barberId: string, data: { allDay: boolean; start?: string; end?: string; reason?: string }) {
+    return this.request<any>(`/barbers/admin/${barberId}/time-off`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Admin: update any barber's time-off (blocked by backend if started)
+  async adminUpdateTimeOff(timeOffId: string, data: { allDay?: boolean; start?: string; end?: string; reason?: string }) {
+    return this.request<any>(`/barbers/admin/time-off/${timeOffId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Admin: delete any barber's time-off (blocked by backend if started)
+  async adminDeleteTimeOff(timeOffId: string) {
+    return this.request<any>(`/barbers/admin/time-off/${timeOffId}`, { method: 'DELETE' });
+  }
+
+  // ============================================
+  // ADMIN: SHOP CLOSURES
+  // ============================================
+  async getShopClosures() {
+    return this.request<any[]>('/appointments/admin/shop-closures');
+  }
+
+  async createShopClosure(data: { allDay: boolean; start?: string; end?: string; reason?: string }) {
+    return this.request<any>('/appointments/admin/shop-closures', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateShopClosure(id: string, data: { allDay?: boolean; start?: string; end?: string; reason?: string }) {
+    return this.request<any>(`/appointments/admin/shop-closures/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteShopClosure(id: string) {
+    return this.request<any>(`/appointments/admin/shop-closures/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Admin endpoints
   async getAllAppointments() {
     return this.request<any[]>('/appointments/admin/all');
@@ -272,36 +442,18 @@ class ApiService {
   // ============================================
   // AVAILABILITY HELPER
   // ============================================
+  async getAvailability(date: string, serviceId?: string, barberId?: string) {
+    const params = new URLSearchParams();
+    params.append('date', date);
+    if (serviceId) params.append('serviceId', serviceId);
+    if (barberId) params.append('barberId', barberId);
+    
+    return this.request<any[]>(`/appointments/availability?${params.toString()}`);
+  }
+
+  // Legacy method - keeping for backward compatibility
   async getBarberAvailability(barberId: string, date: string) {
-    // This would need to be implemented in the backend
-    // For now, we'll return a mock response
-    const appointments = await this.getBarberAppointments();
-    const dayAppointments = appointments.filter((apt: any) => 
-      apt.barberId === barberId && 
-      new Date(apt.start).toDateString() === new Date(date).toDateString()
-    );
-    
-    // Generate available time slots (9 AM to 6 PM, excluding appointments)
-    const slots = [];
-    for (let hour = 9; hour <= 17; hour++) {
-      const timeString = `${hour.toString().padStart(2, '0')}:00`;
-      const datetime = `${date}T${timeString}:00.000Z`;
-      
-      const isBooked = dayAppointments.some((apt: any) => {
-        const aptTime = new Date(apt.start);
-        return aptTime.getHours() === hour;
-      });
-      
-      if (!isBooked) {
-        slots.push({
-          time: timeString,
-          datetime,
-          available: true,
-        });
-      }
-    }
-    
-    return slots;
+    return this.getAvailability(date, undefined, barberId);
   }
 }
 

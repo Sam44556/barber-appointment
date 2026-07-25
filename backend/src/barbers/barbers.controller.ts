@@ -8,9 +8,13 @@ import {
   Delete,
   UseGuards,
   Req,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { BarbersService } from './barbers.service';
+import { CloudinaryService } from '../common/services/cloudinary.service';
 import { CreateBarberDto } from './dto/create-barber.dto';
 import { UpdateBarberDto } from './dto/update-barber.dto';
 import { CreateTimeOffDto } from './dto/create-time-off.dto';
@@ -23,7 +27,10 @@ import { Role } from '@prisma/client';
 @ApiTags('Barbers')
 @Controller('barbers')
 export class BarbersController {
-  constructor(private readonly barbersService: BarbersService) {}
+  constructor(
+    private readonly barbersService: BarbersService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   // 1. Create barber (Admin only)
   @Post()
@@ -55,6 +62,37 @@ export class BarbersController {
   @ApiResponse({ status: 403, description: 'Forbidden - Barber access required' })
   getMyProfile(@Req() req: any) {
     return this.barbersService.getMyProfile(req.user.id);
+  }
+
+  // 3b. Update my profile (Supports text fields AND photo file together)
+  @Patch('me')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.BARBER)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Update my barber profile with photo file & details (Barber only)' })
+  @ApiResponse({ status: 200, description: 'Updated barber profile' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Barber access required' })
+  async updateMyProfile(
+    @Req() req: any,
+    @Body() dto: { name?: string; phone?: string; image?: string; specializations?: string },
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    let imageUrl = dto.image;
+
+    // If an image file was uploaded, upload to Cloudinary and get CDN URL
+    if (file) {
+      try {
+        imageUrl = await this.cloudinaryService.uploadImage(file, 'barber_avatars');
+      } catch (err: any) {
+        console.error('Cloudinary upload error:', err);
+      }
+    }
+
+    return this.barbersService.updateMyProfile(req.user.id, {
+      ...dto,
+      image: imageUrl,
+    });
   }
 
   // 4. Get my appointments (Barber only)
@@ -123,6 +161,56 @@ export class BarbersController {
   @ApiResponse({ status: 404, description: 'Time-off not found' })
   deleteTimeOff(@Param('timeOffId') timeOffId: string, @Req() req: any) {
     return this.barbersService.deleteMyTimeOff(req.user.id, timeOffId);
+  }
+
+  // ============================================
+  // ADMIN: Manage any barber's time-off
+  // ============================================
+
+  // Admin: Get all time-off for a specific barber
+  @Get('admin/:barberId/time-off')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get all time-off for a barber (Admin only)' })
+  adminGetBarberTimeOff(@Param('barberId') barberId: string) {
+    return this.barbersService.adminGetBarberTimeOff(barberId);
+  }
+
+  // Admin: Create time-off for a specific barber
+  @Post('admin/:barberId/time-off')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Create time-off for a barber (Admin only)' })
+  adminCreateBarberTimeOff(
+    @Param('barberId') barberId: string,
+    @Body() createTimeOffDto: CreateTimeOffDto,
+  ) {
+    return this.barbersService.adminCreateBarberTimeOff(barberId, createTimeOffDto);
+  }
+
+  // Admin: Update any time-off (blocks if already started)
+  @Patch('admin/time-off/:timeOffId')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Update time-off (Admin only, blocked if started)' })
+  adminUpdateTimeOff(
+    @Param('timeOffId') timeOffId: string,
+    @Body() updateTimeOffDto: UpdateTimeOffDto,
+  ) {
+    return this.barbersService.adminUpdateTimeOff(timeOffId, updateTimeOffDto);
+  }
+
+  // Admin: Delete any time-off (blocks if already started)
+  @Delete('admin/time-off/:timeOffId')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Delete time-off (Admin only, blocked if started)' })
+  adminDeleteTimeOff(@Param('timeOffId') timeOffId: string) {
+    return this.barbersService.adminDeleteTimeOff(timeOffId);
   }
 
   // 9. Find barber by ID (Public)

@@ -183,15 +183,34 @@ const AdminDashboard = () => {
         >
           <Plus className="h-4 w-4" /> Add service
         </Button>
-        <Button variant="outline" className="gap-2"><UserPlus className="h-4 w-4" /> Invite barber</Button>
-        <Button variant="outline" className="gap-2"><Clock className="h-4 w-4" /> View schedule</Button>
+        <Button 
+          variant="outline" 
+          className="gap-2"
+          onClick={() => navigate('/admin/staff')}
+        >
+          <UserPlus className="h-4 w-4" /> Invite barber
+        </Button>
+        <Button 
+          variant="outline" 
+          className="gap-2"
+          onClick={() => navigate('/admin/schedule')}
+        >
+          <Clock className="h-4 w-4" /> View schedule
+        </Button>
       </div>
 
       {/* Today's Appointments */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display text-xl">Today's Appointments</h2>
-          <Button variant="default" size="sm" className="gap-2"><Plus className="h-4 w-4" /> Add walk-in</Button>
+          <Button 
+            variant="default" 
+            size="sm" 
+            className="gap-2"
+            onClick={() => navigate('/admin/appointments')}
+          >
+            <Plus className="h-4 w-4" /> View all appointments
+          </Button>
         </div>
 
         {todayAppointments.length === 0 ? (

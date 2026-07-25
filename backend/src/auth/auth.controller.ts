@@ -1,8 +1,9 @@
-import { Controller, Post, Get, Body, Headers, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, Headers, HttpCode, HttpStatus, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { SignUpDto } from './dto/sign-up.dto';
 import { SignInDto } from './dto/sign-in.dto';
+import { RegisterBarberDto } from './dto/register-barber.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -70,6 +71,58 @@ export class AuthController {
   async signOut(@Headers('authorization') authorization: string) {
     const token = authorization?.replace('Bearer ', '');
     return this.authService.signOut(token);
+  }
+
+  @Post('register-barber')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Complete barber registration with invitation token' })
+  @ApiResponse({
+    status: 201,
+    description: 'Barber registration completed successfully',
+    schema: {
+      example: {
+        message: 'Barber registration completed successfully',
+        user: {
+          id: 'user_123',
+          name: 'John Smith',
+          email: 'john@example.com',
+          role: 'BARBER',
+        },
+        token: 'jwt_token_here',
+        barber: {
+          id: 'barber_123',
+          specializations: 'Hair cuts, Beard styling',
+          isActive: true,
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Invalid or expired invitation token' })
+  @ApiResponse({ status: 409, description: 'User already exists' })
+  @ApiBody({ type: RegisterBarberDto })
+  async registerBarber(@Body() registerBarberDto: RegisterBarberDto) {
+    return this.authService.registerBarber(registerBarberDto);
+  }
+
+  @Get('validate-invitation')
+  @ApiOperation({ summary: 'Validate barber invitation token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Token is valid',
+    schema: {
+      example: {
+        valid: true,
+        invitation: {
+          id: 'inv_123',
+          email: 'barber@example.com',
+          expiresAt: '2024-01-30T23:59:59Z'
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Token is invalid or expired' })
+  async validateInvitation(@Query('token') token: string) {
+    return this.authService.validateInvitationToken(token);
   }
 
   @Get('debug-session')

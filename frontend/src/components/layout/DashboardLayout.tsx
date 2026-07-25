@@ -13,6 +13,8 @@ import {
   LogOut,
   Menu,
   X,
+  CalendarOff,
+  User,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -24,13 +26,19 @@ interface NavItem {
 }
 
 const ownerNav: NavItem[] = [
-  { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
-  { label: 'Appointments', path: '/admin/appointments', icon: Calendar },
-  { label: 'Services', path: '/admin/services', icon: Scissors },
-  { label: 'Staff', path: '/admin/staff', icon: Users },
-  { label: 'Schedule', path: '/admin/schedule', icon: Clock },
-  { label: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
-  { label: 'Settings', path: '/admin/settings', icon: Settings },
+  { label: 'Dashboard',    path: '/admin/dashboard',      icon: LayoutDashboard },
+  { label: 'Appointments', path: '/admin/appointments',   icon: Calendar },
+  { label: 'Services',     path: '/admin/services',       icon: Scissors },
+  { label: 'Staff',        path: '/admin/staff',          icon: Users },
+  { label: 'Shop Closures', path: '/admin/barber-timeoff', icon: CalendarOff },
+  { label: 'Schedule',     path: '/admin/schedule',       icon: Clock },
+  { label: 'Analytics',    path: '/admin/analytics',      icon: BarChart3 },
+];
+
+const barberNav: NavItem[] = [
+  { label: 'Appointments', path: '/barber/dashboard', icon: LayoutDashboard },
+  { label: 'My Time-Off',     path: '/barber/time-off',  icon: CalendarOff },
+  { label: 'My Profile',     path: '/barber/profile',   icon: User },
 ];
 
 const DashboardLayout = () => {
@@ -39,7 +47,7 @@ const DashboardLayout = () => {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navItems = ownerNav;
+  const navItems = user?.role === 'BARBER' ? barberNav : ownerNav;
 
   const handleLogout = () => {
     logout();

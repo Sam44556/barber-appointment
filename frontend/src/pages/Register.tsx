@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FADE_UP, STAGGER } from '@/lib/animations';
 import { useAuthStore } from '@/stores/auth';
@@ -8,6 +8,7 @@ import interiorImage from '@/assets/barbershop-interior.jpg';
 
 export default function Register() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { register, isLoading } = useAuthStore();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -16,6 +17,17 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
+
+  // Get redirect information from location state
+  const from = location.state?.from || '/';
+  const registerMessage = location.state?.message;
+
+  // Show message if coming from a protected route
+  useEffect(() => {
+    if (registerMessage) {
+      toast.info(registerMessage);
+    }
+  }, [registerMessage]);
 
   const strength = useMemo(() => {
     let s = 0;
@@ -55,7 +67,17 @@ export default function Register() {
       });
       
       toast.success('Account created successfully! Please sign in.');
-      navigate('/login');
+      // If user was trying to access booking, redirect to login with booking context
+      if (from === '/book') {
+        navigate('/login', { 
+          state: { 
+            from: '/book',
+            message: 'Please sign in to continue with your booking'
+          }
+        });
+      } else {
+        navigate('/login');
+      }
     } catch (error: any) {
       setError(error.message || 'Registration failed. Please try again.');
       toast.error('Registration failed');
@@ -202,7 +224,11 @@ export default function Register() {
 
           <p className="text-center mt-8 font-body text-sm text-muted-foreground">
             Already have an account?{' '}
-            <Link to="/login" className="text-foreground hover:underline underline-offset-4">
+            <Link 
+              to="/login"
+              state={{ from, message: registerMessage }}
+              className="text-foreground hover:underline underline-offset-4"
+            >
               Sign In
             </Link>
           </p>

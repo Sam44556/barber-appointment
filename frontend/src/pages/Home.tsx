@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Loader2 } from 'lucide-react';
 import { FADE_UP, STAGGER, STAGGER_SLOW, EASE } from '@/lib/animations';
-import { services, barbers } from '@/lib/data';
+import { services } from '@/lib/data';
+import { apiService } from '@/lib/api';
 import heroImage from '@/assets/hero-barber.jpg';
 
 function HeroSection() {
@@ -19,7 +21,7 @@ function HeroSection() {
           className="flex-1 pt-32 lg:pt-0 lg:pr-16"
         >
           <motion.p variants={FADE_UP} className="section-label text-gray-400 mb-6">
-            BROOKLYN'S FINEST
+            ADDIS ABABA'S FINEST
           </motion.p>
           <motion.h1
             variants={FADE_UP}
@@ -37,7 +39,7 @@ function HeroSection() {
           <motion.div variants={FADE_UP} className="flex gap-4">
             <Link
               to="/book"
-              className="font-body text-sm px-8 py-3.5 bg-primary-foreground text-primary rounded-sm hover:opacity-90 transition-opacity"
+              className="font-body text-sm px-8 py-3.5 bg-primary-foreground text-primary rounded-sm hover:opacity-90 transition-opacity font-semibold"
             >
               Book Now
             </Link>
@@ -138,57 +140,98 @@ function ServicesPreview() {
 }
 
 function TeamSection() {
+  const [barbersList, setBarbersList] = useState<any[]>([]);
+  const [loading, setLoading]         = useState(true);
+
+  useEffect(() => {
+    fetchBarbers();
+  }, []);
+
+  const fetchBarbers = async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.getBarbers();
+      const activeBarbers = (data || []).filter((b: any) => b.isActive !== false);
+      setBarbersList(activeBarbers);
+    } catch (err) {
+      console.error('Failed to fetch barbers for home page team section:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <section className="py-24 lg:py-32 bg-primary text-primary-foreground">
+    <section className="py-20 lg:py-28 bg-primary text-primary-foreground">
       <div className="container mx-auto px-6">
         <motion.p
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="font-mono text-[11px] uppercase tracking-[0.2em] text-gray-400 mb-12"
+          className="font-mono text-[11px] uppercase tracking-[0.2em] text-gray-400 mb-10 text-center"
         >
-          MEET THE TEAM
+          MEET OUR BARBERS
         </motion.p>
 
-        <motion.div
-          variants={STAGGER_SLOW}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-100px' }}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
-        >
-          {barbers.map((barber) => (
-            <motion.div
-              key={barber.id}
-              variants={FADE_UP}
-              whileHover={{ scale: 1.02 }}
-              className="group relative overflow-hidden cursor-pointer"
-            >
-              <div className="aspect-square overflow-hidden">
-                <img
-                  src={barber.avatarUrl}
-                  alt={barber.name}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
-                  width={640}
-                  height={640}
-                />
-                <div className="absolute inset-0 bg-primary/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-gray-400">
+            <Loader2 className="animate-spin mr-2" size={20} />
+            <span className="font-body text-sm">Loading barbers...</span>
+          </div>
+        ) : barbersList.length === 0 ? (
+          <p className="font-body text-sm text-gray-400 text-center">Our team is ready to serve you.</p>
+        ) : (
+          <motion.div
+            variants={STAGGER_SLOW}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-60px' }}
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 max-w-5xl mx-auto"
+          >
+            {barbersList.map((barber) => {
+              const name = barber.user?.name || barber.name || 'Barber';
+              const avatar = barber.user?.image || barber.photo || '';
+              const specialty = barber.specializations || 'Master Barber';
+
+              return (
+                <motion.div
+                  key={barber.id}
+                  variants={FADE_UP}
+                  whileHover={{ y: -4 }}
+                  className="group bg-gray-900/60 border border-gray-800 rounded-lg p-5 text-center flex flex-col items-center justify-between hover:border-gray-600 transition-all shadow-sm"
+                >
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-2 border-primary/40 group-hover:border-primary transition-colors bg-gray-800 shrink-0 mb-3 shadow-md">
+                    {avatar ? (
+                      <img
+                        src={avatar}
+                        alt={name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-gray-200">
+                        <span className="font-display text-3xl font-bold">
+                          {name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="w-full mb-3">
+                    <h3 className="font-display text-base font-bold truncate text-gray-100">{name}</h3>
+                    <p className="font-body text-xs text-gray-400 line-clamp-1 mt-0.5">{specialty}</p>
+                  </div>
+
                   <Link
                     to="/book"
-                    className="font-body text-sm px-6 py-3 bg-primary-foreground text-primary rounded-sm transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300"
+                    className="w-full py-2 px-3 bg-primary-foreground text-primary hover:bg-gray-200 font-body text-xs font-semibold rounded-sm transition-colors"
                   >
-                    Book with {barber.name.split(' ')[0]}
+                    Book Now
                   </Link>
-                </div>
-              </div>
-              <div className="mt-4">
-                <h3 className="font-display text-xl">{barber.name}</h3>
-                <p className="font-body text-sm text-gray-400">{barber.specialty}</p>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        )}
       </div>
     </section>
   );
@@ -242,7 +285,7 @@ function HowItWorks() {
         >
           <Link
             to="/book"
-            className="inline-block font-body text-sm px-12 py-4 bg-primary text-primary-foreground rounded-sm hover:opacity-90 transition-opacity"
+            className="inline-block font-body text-sm px-12 py-4 bg-primary text-primary-foreground rounded-sm hover:opacity-90 transition-opacity font-semibold"
           >
             Book Now
           </Link>

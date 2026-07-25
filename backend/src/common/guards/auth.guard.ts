@@ -4,12 +4,11 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
-import { auth } from '../../lib/auth';
-import { PrismaService } from '../../prisma/prisma.service';
+import { AuthService } from '../../auth/auth.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(private readonly authService: AuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -17,74 +16,31 @@ export class AuthGuard implements CanActivate {
 
     console.log('🔐 AuthGuard: Starting validation...');
     console.log('🔐 Token present:', !!token);
-    console.log('🔐 Token preview:', token ? `${token.substring(0, 10)}...` : 'none');
 
     if (!token) {
       throw new UnauthorizedException('No token provided');
     }
 
     try {
-      console.log('🔐 AuthGuard: Calling Better Auth getSession...');
+      console.log('🔐 AuthGuard: Calling AuthService getSession...');
       
-      const session = await auth.api.getSession({
-        headers: {
-          authorization: `Bearer ${token}`,
-        },
-      });
+      // Use our custom auth service instead of Better Auth directly
+      const sessionData = await this.authService.getSession(token);
 
-      console.log('🔐 Better Auth session response:', {
-        hasSession: !!session,
-        hasUser: !!session?.user,
-        sessionKeys: session ? Object.keys(session) : [],
-        userKeys: session?.user ? Object.keys(session.user) : [],
-      });
-
-      if (!session) {
-        console.log('❌ AuthGuard: No session returned from Better Auth');
-        throw new UnauthorizedException('No session found');
+      if (!sessionData || !sessionData.user) {
+        console.log('❌ AuthGuard: No session or user from AuthService');
+        throw new UnauthorizedException('Invalid session');
       }
 
-      if (!session.user) {
-        console.log('❌ AuthGuard: No user in session');
-        throw new UnauthorizedException('No user in session');
-      }
+      console.log('✅ AuthGuard: Session valid for user:', sessionData.user.id, 'role:', sessionData.user.role);
 
-      console.log('✅ AuthGuard: Session valid for user:', session.user.id);
-
-      // Fetch the full user data with role from database
-      const fullUser = await this.prismaService.user.findUnique({
-        where: { id: session.user.id },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          phone: true,
-          image: true,
-          emailVerified: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
-
-      if (!fullUser) {
-        console.log('❌ AuthGuard: User not found in database');
-        throw new UnauthorizedException('User not found');
-      }
-
-      console.log('✅ AuthGuard: User loaded with role:', fullUser.role);
-
-      // Attach both session and full user data to request
-      request.user = fullUser;
-      request.session = session.session;
+      // Attach session and user data to request
+      request.user = sessionData.user;
+      request.session = sessionData.session;
       return true;
       
     } catch (error) {
-      console.error('❌ AuthGuard Error Details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack?.split('\n')[0],
-      });
+      console.error('❌ AuthGuard Error:', error.message);
       throw new UnauthorizedException('Invalid token');
     }
   }

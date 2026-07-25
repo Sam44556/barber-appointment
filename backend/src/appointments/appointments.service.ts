@@ -356,4 +356,62 @@ export class AppointmentsService {
       where: { id },
     });
   }
+
+  // ============================================
+  // SHOP CLOSURE METHODS (Admin only)
+  // ============================================
+
+  async getShopClosures() {
+    return this.prisma.shopClosure.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createShopClosure(dto: { allDay: boolean; start?: string; end?: string; reason?: string }) {
+    return this.prisma.shopClosure.create({
+      data: {
+        allDay: dto.allDay,
+        start: dto.start ? new Date(dto.start) : null,
+        end: dto.end ? new Date(dto.end) : null,
+        reason: dto.reason,
+      },
+    });
+  }
+
+  async updateShopClosure(id: string, dto: { allDay?: boolean; start?: string; end?: string; reason?: string }) {
+    const closure = await this.prisma.shopClosure.findUnique({ where: { id } });
+    if (!closure) {
+      throw new NotFoundException('Shop closure not found');
+    }
+
+    // Check if time-off / closure has already started!
+    if (closure.start && new Date(closure.start) <= new Date()) {
+      throw new BadRequestException('Cannot update a shop closure that has already started');
+    }
+
+    const updateData: any = { ...dto };
+    if (dto.start) updateData.start = new Date(dto.start);
+    if (dto.end) updateData.end = new Date(dto.end);
+
+    return this.prisma.shopClosure.update({
+      where: { id },
+      data: updateData,
+    });
+  }
+
+  async deleteShopClosure(id: string) {
+    const closure = await this.prisma.shopClosure.findUnique({ where: { id } });
+    if (!closure) {
+      throw new NotFoundException('Shop closure not found');
+    }
+
+    // Check if time-off / closure has already started!
+    if (closure.start && new Date(closure.start) <= new Date()) {
+      throw new BadRequestException('Cannot delete a shop closure that has already started');
+    }
+
+    return this.prisma.shopClosure.delete({
+      where: { id },
+    });
+  }
 }

@@ -26,13 +26,18 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
-   phone String?
+  phone String?
 
   role Role @default(CUSTOMER)
 
   barber Barber?
 
   appointments Appointment[] @relation("CustomerAppointments")
+  
+  // Invitation relations
+  sentInvitations BarberInvitation[] @relation("AdminInvitations")
+  receivedInvitation BarberInvitation[] @relation("BarberInvitations")
+  
   @@unique([email])
   @@map("user")
 }
@@ -100,8 +105,8 @@ model Barber {
 
   isActive Boolean @default(true)
   specializations String?
+  photo String? // Added photo field for barber profile image
   appointments Appointment[]
-
 
   timeOff BarberTimeOff[]
 
@@ -186,4 +191,38 @@ model ShopClosure {
   reason String?
 
   createdAt DateTime @default(now())
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+model BarberInvitation {
+  id String @id @default(cuid())
+
+  email String
+  token String @unique
+  
+  status InvitationStatus @default(PENDING)
+  
+  expiresAt DateTime
+  usedAt DateTime?
+  
+  // Reference to admin who sent the invitation
+  createdBy String
+  createdByUser User @relation("AdminInvitations", fields: [createdBy], references: [id])
+  
+  // Optional reference to user after they register
+  userId String?
+  user User? @relation("BarberInvitations", fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([token])
+  @@index([status])
 }

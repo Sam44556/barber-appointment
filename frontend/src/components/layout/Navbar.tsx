@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
-import { Menu, X, User, LogOut } from 'lucide-react';
+import { Menu, X, User, LogOut, CalendarDays } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { FADE_UP, STAGGER, EASE } from '@/lib/animations';
 
@@ -95,6 +95,16 @@ export function Navbar() {
                           <User size={16} />
                           Dashboard
                         </Link>
+                        {user.role === 'CUSTOMER' && (
+                          <Link
+                            to="/my-appointments"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-secondary rounded-sm transition-colors"
+                          >
+                            <CalendarDays size={16} />
+                            My Appointments
+                          </Link>
+                        )}
                         <button
                           onClick={handleLogout}
                           className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-secondary rounded-sm transition-colors text-left"
@@ -179,6 +189,17 @@ export function Navbar() {
                       Dashboard
                     </Link>
                   </motion.div>
+                  {user.role === 'CUSTOMER' && (
+                    <motion.div variants={FADE_UP}>
+                      <Link
+                        to="/my-appointments"
+                        onClick={() => setMenuOpen(false)}
+                        className="font-body text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        My Appointments
+                      </Link>
+                    </motion.div>
+                  )}
                   <motion.div variants={FADE_UP}>
                     <button
                       onClick={() => {

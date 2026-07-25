@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FADE_UP, STAGGER, SCALE_IN } from '@/lib/animations';
 import { useAuthStore } from '@/stores/auth';
@@ -7,14 +7,33 @@ import { toast } from 'sonner';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, isLoading, isAuthenticated, user } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  // Redirect authenticated users based on their role
+  // Get redirect information from location state
+  const from = location.state?.from || '/';
+  const loginMessage = location.state?.message;
+
+  // Show message if coming from a protected route
+  useEffect(() => {
+    if (loginMessage) {
+      toast.info(loginMessage);
+    }
+  }, [loginMessage]);
+
+  // Redirect authenticated users based on their role or back to intended page
   useEffect(() => {
     if (isAuthenticated && user) {
+      // If user was trying to access booking, redirect there
+      if (from === '/book') {
+        navigate('/book');
+        return;
+      }
+
+      // Otherwise, redirect based on role
       switch (user.role) {
         case 'ADMIN':
           navigate('/admin/dashboard');
@@ -29,7 +48,7 @@ export default function Login() {
           navigate('/');
       }
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,20 +163,14 @@ export default function Login() {
 
         <p className="text-center mt-8 font-body text-sm text-muted-foreground">
           Don't have an account?{' '}
-          <Link to="/register" className="text-foreground hover:underline underline-offset-4">
+          <Link 
+            to="/register"
+            state={{ from, message: loginMessage }}
+            className="text-foreground hover:underline underline-offset-4"
+          >
             Register
           </Link>
         </p>
-
-        {/* Demo credentials */}
-        <div className="mt-6 p-4 bg-muted rounded-sm">
-          <p className="font-body text-xs text-muted-foreground mb-2">Demo accounts:</p>
-          <div className="space-y-1 text-xs font-mono">
-            <p>Admin: admin@example.com / password123</p>
-            <p>Barber: barber@example.com / password123</p>
-            <p>Customer: customer@example.com / password123</p>
-          </div>
-        </div>
       </motion.div>
     </motion.div>
   );
