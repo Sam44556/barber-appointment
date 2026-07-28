@@ -9,12 +9,13 @@ async function bootstrap() {
   // Enable CORS with multiple allowed origins
   app.enableCors({
     origin: [
-      process.env.FRONTEND_URL || 'http://localhost:8080',
-      'http://localhost:5173', // Vite default
-      'http://localhost:3000', // In case frontend runs on 3000
-      'http://localhost:8080', // Your current frontend
-      'http://127.0.0.1:8080', // Alternative localhost
-      'http://127.0.0.1:5173', // Alternative localhost
+      process.env.FRONTEND_URL || 'http://localhost',
+      'http://localhost',        // Docker (port 80)
+      'http://127.0.0.1',        // Docker alternative (port 80)
+      'http://localhost:5173',   // Vite dev server
+      'http://localhost:8080',   // Legacy dev port
+      'http://127.0.0.1:5173',   // Vite alternative
+      'http://127.0.0.1:8080',   // Legacy alternative
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -63,6 +64,6 @@ async function bootstrap() {
 
   console.log(`🚀 Application is running on: http://localhost:${port}/api`);
   console.log(`📚 Swagger documentation: http://localhost:${port}/api/docs`);
-  console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:8080'}`);
+  console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost'}`);
 }
 bootstrap();
