@@ -82,8 +82,12 @@
       "^.+\\.(t|j|mj)s$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "/node_modules/(?!(better-auth)/)"
+      "/node_modules/"
     ],
+    "moduleNameMapper": {
+      "^better-auth$": "<rootDir>/../test/mocks/better-auth.ts",
+      "^better-auth/adapters/prisma$": "<rootDir>/../test/mocks/better-auth-prisma.ts"
+    },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
