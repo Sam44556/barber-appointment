@@ -1,0 +1,90 @@
+# ============================================================
+# Deployment — Frontend (React/Vite served by Nginx)
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: barber-app
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: barber-appointment
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 2
+
+  # Zero-downtime rolling updates
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  selector:
+    matchLabels:
+      app: frontend
+
+  template:
+    metadata:
+      labels:
+        app: frontend
+        app.kubernetes.io/name: frontend
+        app.kubernetes.io/part-of: barber-appointment
+    spec:
+      # Security: run as nginx non-root user
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+
+      terminationGracePeriodSeconds: 15
+
+      containers:
+        - name: frontend
+          # ⚠️ Replace with your actual image
+          # e.g. ghcr.io/YOUR_GITHUB_USERNAME/barber-frontend:latest
+          image: ghcr.io/sam44556/barber-frontend:latest
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+
+          # Nginx serving static files — very lightweight
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+
+          # Liveness probe — restart if Nginx hangs
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # Readiness probe — hold traffic until Nginx is ready
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE  # Required to bind port 80

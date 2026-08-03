@@ -1,0 +1,22 @@
+# ============================================================
+# Service — Frontend
+# ClusterIP: only reachable inside the cluster.
+# The Ingress routes external traffic to this Service.
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: barber-app
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: barber-appointment
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80        # Port the Service listens on inside the cluster
+      targetPort: 80  # Port the Nginx container listens on
+      protocol: TCP

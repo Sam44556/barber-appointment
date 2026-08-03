@@ -1,4 +1,8 @@
-const API_BASE_URL = 'http://localhost:3000/api';
+// Read the backend API URL from the environment variable injected at build time.
+// For local dev:       set VITE_API_URL in .env          → http://localhost:3000/api
+// For production:      set VITE_API_URL in .env.production → https://api.yourdomain.com/api
+// For Docker/K8s:      pass VITE_API_URL as a Docker build-arg  → baked into the bundle
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -8,8 +12,11 @@ export class ApiError extends Error {
 }
 
 class ApiService {
+  // Expose the base URL so multipart methods can use it directly
+  readonly baseUrl = API_BASE_URL;
+
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = `${this.baseUrl}${endpoint}`;
     const token = localStorage.getItem('auth_token');
     
     console.log(`🔄 Making API request to: ${url}`);
@@ -55,7 +62,7 @@ class ApiService {
       console.error(`🔥 Network Error:`, error);
       
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error(`Network error: Unable to connect to backend at ${url}. Please ensure the backend is running on http://localhost:3000`);
+        throw new Error(`Network error: Unable to connect to backend at ${url}. Check VITE_API_URL env variable.`);
       }
       
       throw new Error(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`);

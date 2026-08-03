@@ -1,0 +1,23 @@
+# ============================================================
+# ConfigMap — Frontend build-time environment variables
+#
+# ⚠️ IMPORTANT: Vite bakes env vars INTO the JS bundle at build time.
+#    This ConfigMap documents what value must be passed as a
+#    Docker build-arg when the image is built (in CI/CD).
+#    It is NOT injected at runtime like backend env vars.
+#
+#    Use this in your CI pipeline build step:
+#      docker build --build-arg VITE_API_URL=https://api.yourdomain.com/api .
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: barber-app
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: barber-appointment
+data:
+  # The public URL of the backend API — used as a Docker build-arg
+  # ⚠️ Replace with your real API domain
+  VITE_API_URL: "https://api.yourdomain.com/api"

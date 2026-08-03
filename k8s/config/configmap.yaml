@@ -1,0 +1,16 @@
+# ============================================================
+# ConfigMap — Backend non-sensitive environment variables
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: barber-app
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: barber-appointment
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  BETTER_AUTH_URL: "https://api.yourdomain.com"
+  FRONTEND_URL: "https://yourdomain.com"

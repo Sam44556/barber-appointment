@@ -1,0 +1,12 @@
+# ============================================================
+# Namespace — barber-app
+# Isolates all resources for the Barber Appointment system
+# ============================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: barber-app
+  labels:
+    app.kubernetes.io/name: barber-appointment
+    app.kubernetes.io/managed-by: kubectl
+    environment: production

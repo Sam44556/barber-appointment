@@ -1,0 +1,127 @@
+# ============================================================
+# Deployment — Backend (NestJS + Prisma)
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: barber-app
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: barber-appointment
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 2
+
+  # Zero-downtime rolling updates
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  selector:
+    matchLabels:
+      app: backend
+
+  template:
+    metadata:
+      labels:
+        app: backend
+        app.kubernetes.io/name: backend
+        app.kubernetes.io/part-of: barber-appointment
+    spec:
+      # Security: never run as root
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: backend
+          # ⚠️ Replace with your actual image
+          # e.g. ghcr.io/YOUR_GITHUB_USERNAME/barber-backend:latest
+          image: ghcr.io/sam44556/barber-backend:latest
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+
+          # Non-sensitive config
+          envFrom:
+            - configMapRef:
+                name: backend-config
+
+          # Sensitive config from Secret
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: DATABASE_URL
+            - name: BETTER_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: BETTER_AUTH_SECRET
+            - name: CLOUDINARY_CLOUD_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: CLOUDINARY_CLOUD_NAME
+            - name: CLOUDINARY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: CLOUDINARY_API_KEY
+            - name: CLOUDINARY_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: CLOUDINARY_API_SECRET
+
+          # Resource limits — prevent one pod starving others
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          # Startup probe — allows extra time for Prisma migrations on boot
+          startupProbe:
+            httpGet:
+              path: /api
+              port: http
+            failureThreshold: 30  # 30 × 10s = 5 min max startup time
+            periodSeconds: 10
+
+          # Liveness probe — restart pod if app hangs
+          livenessProbe:
+            httpGet:
+              path: /api
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Readiness probe — remove pod from load balancer until ready
+          readinessProbe:
+            httpGet:
+              path: /api
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL

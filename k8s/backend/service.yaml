@@ -1,0 +1,22 @@
+# ============================================================
+# Service — Backend
+# ClusterIP: only reachable inside the cluster.
+# The Ingress routes external traffic to this Service.
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: barber-app
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: barber-appointment
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 80          # Port the Service listens on inside the cluster
+      targetPort: 3000  # Port the NestJS container listens on
+      protocol: TCP

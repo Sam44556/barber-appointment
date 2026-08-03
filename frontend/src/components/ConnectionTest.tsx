@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { apiService } from '@/lib/api';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 export function ConnectionTest() {
   const [testing, setTesting] = useState(false);
@@ -10,8 +11,7 @@ export function ConnectionTest() {
     setResult('Testing connection...');
     
     try {
-      // Try to hit a simple endpoint
-      const response = await fetch('http://localhost:3000/api/services');
+      const response = await fetch(`${API_BASE_URL}/services`);
       if (response.ok) {
         const data = await response.json();
         setResult(`✅ Backend connected! Found ${data.length || 0} services`);
@@ -20,7 +20,7 @@ export function ConnectionTest() {
       }
     } catch (error: any) {
       if (error.message.includes('fetch')) {
-        setResult('❌ Cannot connect to backend. Make sure it\'s running on http://localhost:3000');
+        setResult(`❌ Cannot connect to backend at ${API_BASE_URL}`);
       } else {
         setResult(`❌ Error: ${error.message}`);
       }
@@ -44,4 +44,4 @@ export function ConnectionTest() {
       )}
     </div>
   );
-}
+}

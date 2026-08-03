@@ -36,7 +36,7 @@ export class AppointmentsController {
   // Get available time slots for booking
   @Get('availability')
   @UseGuards(RolesGuard)
-  @Roles(Role.CUSTOMER, Role.ADMIN)
+  @Roles(Role.CUSTOMER, Role.ADMIN, Role.BARBER)
   async getAvailability(
     @Query('date') date: string,
     @Query('serviceId') serviceId?: string,
@@ -93,10 +93,10 @@ export class AppointmentsController {
     }
   }
 
-  // Customer: Create appointment
+  // Customer: Create appointment (ADMIN can also book on behalf of customers)
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(Role.CUSTOMER)
+  @Roles(Role.CUSTOMER, Role.ADMIN)
   create(@Body() createAppointmentDto: CreateAppointmentDto, @Req() req: any) {
     return this.appointmentsService.create(createAppointmentDto, req.user.id);
   }
@@ -104,7 +104,7 @@ export class AppointmentsController {
   // Customer: Get my appointments
   @Get('me')
   @UseGuards(RolesGuard)
-  @Roles(Role.CUSTOMER)
+  @Roles(Role.CUSTOMER, Role.ADMIN)
   getMyAppointments(@Req() req: any) {
     return this.appointmentsService.getMyAppointments(req.user.id);
   }
@@ -137,7 +137,7 @@ export class AppointmentsController {
   // Customer: Cancel appointment
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.CUSTOMER)
+  @Roles(Role.CUSTOMER, Role.ADMIN)
   cancelAppointment(@Param('id') id: string, @Req() req: any) {
     return this.appointmentsService.cancel(id, req.user.id, req.user.role);
   }
