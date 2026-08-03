@@ -1,0 +1,23 @@
+# Root-level gitignore
+# ============================================================
+
+# ── Environment variable files ────────────────────────────
+# NEVER commit real secrets
+.env
+.env.local
+.env.production
+.env.*.local
+backend/.env
+frontend/.env
+frontend/.env.production
+
+# ── Kubernetes secrets ────────────────────────────────────
+# The real secret.yaml will have real passwords — never commit it.
+# Use secret.example.yaml as the template instead.
+k8s/config/secret.yaml
+k8s/config/frontend-secret.yaml
+
+# ── OS / Editor ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/settings.json
