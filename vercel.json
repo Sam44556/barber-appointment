@@ -8,7 +8,8 @@
       "root": "backend",
       "framework": "nestjs",
       "runtime": "node",
-      "entrypoint": "src/main.ts"
+      "entrypoint": "src/main.ts",
+      "buildCommand": "npx prisma generate && npm run build"
     }
   },
   "rewrites": [
