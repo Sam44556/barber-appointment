@@ -1,50 +1,55 @@
-# ─────────────────────────────────────────────
-# Stage 1: Install & Build (NestJS)
-# ─────────────────────────────────────────────
-FROM node:22-alpine AS builder
+# Multi-stage build for production
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy manifests first for better layer caching
+# Copy package files
 COPY package*.json ./
+COPY prisma ./prisma/
 
-# Install ALL dependencies (including devDeps needed for build)
+# Install dependencies
 RUN npm ci
 
 # Copy source code
 COPY . .
 
-# Generate Prisma client, build NestJS, then copy generated folder
-# (replaces the Windows-only xcopy in "npm run build")
-RUN npx prisma generate && \
-    npx nest build && \
-    if [ -d "generated" ]; then cp -r generated dist/generated; fi
+# Generate Prisma Client
+RUN npx prisma generate
 
-# ─────────────────────────────────────────────
-# Stage 2: Production runtime
-# ─────────────────────────────────────────────
-FROM node:22-alpine AS runner
+# Build the application
+RUN npm run build
+
+# Production stage
+FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Only copy production dependency manifests
+# Install only production dependencies
 COPY package*.json ./
+COPY prisma ./prisma/
+RUN npm ci --only=production && \
+    npx prisma generate && \
+    npm cache clean --force
 
-# Install production-only dependencies
-RUN npm ci --omit=dev
-
-# Copy compiled output from builder
+# Copy built application from builder
 COPY --from=builder /app/dist ./dist
 
-# Copy the Prisma client & schema (runtime needs both)
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY prisma ./prisma
-# Prisma config file — needed at runtime for `prisma migrate deploy`
-COPY prisma.config.ts ./prisma.config.ts
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001
 
-# Expose the backend port
+# Change ownership
+RUN chown -R nestjs:nodejs /app
+
+# Switch to non-root user
+USER nestjs
+
+# Expose port
 EXPOSE 3000
 
-# Run database migrations then start the server
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
+  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Start the application
+CMD ["node", "dist/main"]

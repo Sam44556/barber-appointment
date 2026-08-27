@@ -11,7 +11,7 @@ metadata:
     app.kubernetes.io/part-of: barber-appointment
     app.kubernetes.io/version: "1.0.0"
 spec:
-  replicas: 2
+  replicas: 3
 
   # Zero-downtime rolling updates
   strategy:

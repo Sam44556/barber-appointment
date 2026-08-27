@@ -1,33 +1,16 @@
-# Node modules
-node_modules/
-
-# Compiled output
-dist/
-
-# Environment files (never bake secrets into images)
+node_modules
+npm-debug.log
+dist
+.git
 .env
-.env.*
-!.env.example
-
-# Logs
-*.log
-npm-debug.log*
-
-# OS/Editor junk
+.env.local
+.env.*.local
 .DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# Test & coverage artifacts
-coverage/
-test/
-
-# Prettier / ESLint config (not needed in image)
+coverage
+.vscode
+.idea
+*.md
+!README.md
+test
+.eslintrc.js
 .prettierrc
-.eslintrc*
-eslint.config.*
-
-# Prisma migrations history (schema is enough for generate; migrations are applied at runtime)
-# Comment this out if you want migrations baked in
-# prisma/migrations/

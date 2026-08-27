@@ -1,0 +1,117 @@
+name: CD Pipeline (Build & Push Docker)
+
+on:
+  push:
+    branches: [ main, master ]
+    # Only run this CD pipeline when code in backend or frontend changes
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+
+env:
+  REGISTRY: ghcr.io
+  # github.repository is usually owner/repo (e.g. your-username/barber-appointment)
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-backend:
+    name: Build & Push Backend Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
+
+      - name: Build and push Backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  build-and-push-frontend:
+    name: Build & Push Frontend Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
+
+      - name: Build and push Frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL_PRODUCTION }}
+
+  deploy:
+    name: Deploy to Kubernetes (AWS EC2)
+    needs: [build-and-push-backend, build-and-push-frontend]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Copy Kubernetes manifests to Server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "k8s/"
+          target: "~/barber-app"
+
+      - name: Apply Kubernetes Manifests and Restart Pods
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            # Log in to GitHub Container Registry so K3s can pull private images if needed
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin || true
+            
+            # Apply all Kubernetes manifests
+            sudo k3s kubectl apply -f ~/barber-app/k8s/namespace.yaml
+            sudo k3s kubectl apply -R -f ~/barber-app/k8s/
+            
+            # Force Kubernetes to pull the new images we just built and do a zero-downtime rolling update
+            sudo k3s kubectl rollout restart deployment backend -n barber-app
+            sudo k3s kubectl rollout restart deployment frontend -n barber-app

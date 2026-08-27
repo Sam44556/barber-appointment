@@ -42,10 +42,10 @@ spec:
 
       containers:
         - name: frontend
-          # ⚠️ Replace with your actual image
-          # e.g. ghcr.io/YOUR_GITHUB_USERNAME/barber-frontend:latest
-          image: ghcr.io/sam44556/barber-frontend:latest
-          imagePullPolicy: Always
+          # Local image built by: docker compose build
+          # Image name = <folder_name>-<service_name>:latest
+          image: barber_apointment-frontend:latest
+          imagePullPolicy: Never
 
           ports:
             - name: http

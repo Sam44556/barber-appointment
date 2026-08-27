@@ -1,43 +1,35 @@
-# ─────────────────────────────────────────────
-# Stage 1: Build the React/Vite app
-# ─────────────────────────────────────────────
+# Build stage
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy dependency manifests first for better layer caching
+# Copy package files
 COPY package*.json ./
 
+# Install dependencies
 RUN npm ci
 
-# Copy the rest of the source code
+# Copy source code
 COPY . .
 
-# ── Build-time environment variable ─────────────────────────
-# VITE_API_URL is baked into the JS bundle at build time by Vite.
-# Pass it when building the image:
-#   docker build --build-arg VITE_API_URL=https://api.yourdomain.com/api .
-# If not provided, falls back to the value in .env.production
-ARG VITE_API_URL
-ENV VITE_API_URL=${VITE_API_URL}
-
-# Build the production bundle (Vite reads VITE_* env vars automatically)
+# Build the application
 RUN npm run build
 
-# ─────────────────────────────────────────────
-# Stage 2: Serve with Nginx (lightweight)
-# ─────────────────────────────────────────────
-FROM nginx:alpine AS runner
+# Production stage with nginx
+FROM nginx:alpine
 
-# Remove default Nginx static files
-RUN rm -rf /usr/share/nginx/html/*
-
-# Copy built assets from builder stage
+# Copy built files
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy custom Nginx config (handles SPA routing + gzip + caching)
+# Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Expose port
 EXPOSE 80
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD wget --quiet --tries=1 --spider http://localhost:80 || exit 1
+
+# Start nginx
 CMD ["nginx", "-g", "daemon off;"]

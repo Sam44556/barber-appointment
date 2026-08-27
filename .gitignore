@@ -17,6 +17,13 @@ frontend/.env.production
 k8s/config/secret.yaml
 k8s/config/frontend-secret.yaml
 
+# ── Documentation (except README.md) ──────────────────────
+# Ignore all markdown files except README.md
+*.md
+!README.md
+!backend/README.md
+!frontend/README.md
+
 # ── OS / Editor ───────────────────────────────────────────
 .DS_Store
 Thumbs.db
