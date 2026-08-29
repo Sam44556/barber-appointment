@@ -13,14 +13,13 @@
       "src": "backend/api/index.ts",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["backend/src/**", "backend/prisma/**", "backend/generated/**"],
-        "buildCommand": "cd backend && npx prisma generate && npm run build"
+        "includeFiles": ["backend/src/**", "backend/prisma/**", "backend/generated/**", "backend/node_modules/.prisma/**", "backend/node_modules/@prisma/client/**"]
       }
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
+      "src": "/api(.*)",
       "dest": "backend/api/index.ts"
     },
     {
