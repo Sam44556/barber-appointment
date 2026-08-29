@@ -1,28 +1,25 @@
+import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { AppModule } from '../src/app.module';
-import * as express from 'express';
+import express from 'express';
 import { IncomingMessage, ServerResponse } from 'http';
 
 const expressServer = express();
-let isInitialized = false;
+let app: any = null;
 
 async function bootstrap() {
-  if (isInitialized) return expressServer;
+  if (app) return expressServer;
 
-  const app = await NestFactory.create(
+  app = await NestFactory.create(
     AppModule,
     new ExpressAdapter(expressServer),
     { logger: ['error', 'warn'] },
   );
 
-  // CORS — allow Vercel frontend domain
   app.enableCors({
-    origin: [
-      process.env.FRONTEND_URL || '*',
-      /\.vercel\.app$/,
-    ],
+    origin: '*',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -36,11 +33,8 @@ async function bootstrap() {
     }),
   );
 
-  // Global prefix — all routes are under /api
   app.setGlobalPrefix('api');
-
   await app.init();
-  isInitialized = true;
   return expressServer;
 }
 
@@ -48,6 +42,16 @@ export default async function handler(
   req: IncomingMessage,
   res: ServerResponse,
 ) {
-  const server = await bootstrap();
-  server(req, res);
+  try {
+    const server = await bootstrap();
+    server(req, res);
+  } catch (error: any) {
+    console.error('Bootstrap error:', error);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      error: 'Bootstrap failed',
+      message: error?.message || 'Unknown error',
+      stack: error?.stack?.split('\n').slice(0, 8),
+    }));
+  }
 }
