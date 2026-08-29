@@ -1,33 +1,7 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist",
-        "buildCommand": "npm run build"
-      }
-    },
-    {
-      "src": "backend/api/index.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["backend/src/**", "backend/prisma/**", "backend/generated/**", "backend/node_modules/.prisma/**", "backend/node_modules/@prisma/client/**"]
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api(.*)",
-      "dest": "backend/api/index.ts"
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
